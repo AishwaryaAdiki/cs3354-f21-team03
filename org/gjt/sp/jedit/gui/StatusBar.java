@@ -25,20 +25,31 @@
 package org.gjt.sp.jedit.gui;
 
 //{{{ Imports
-import javax.annotation.Nullable;
-import javax.swing.border.*;
-import javax.swing.text.Segment;
-import javax.swing.*;
-import java.awt.event.*;
-import java.awt.*;
-import java.util.Objects;
-import java.util.StringTokenizer;
-import org.gjt.sp.jedit.textarea.*;
+
 import org.gjt.sp.jedit.*;
 import org.gjt.sp.jedit.gui.statusbar.StatusWidgetFactory;
-import org.gjt.sp.jedit.gui.statusbar.Widget;
 import org.gjt.sp.jedit.gui.statusbar.ToolTipLabel;
-import org.gjt.sp.util.*;
+import org.gjt.sp.jedit.gui.statusbar.Widget;
+import org.gjt.sp.jedit.textarea.JEditTextArea;
+import org.gjt.sp.util.StandardUtilities;
+import org.gjt.sp.util.Task;
+import org.gjt.sp.util.TaskAdapter;
+import org.gjt.sp.util.TaskManager;
+
+import javax.annotation.Nullable;
+import javax.swing.*;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.EmptyBorder;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.JTextComponent;
+import javax.swing.text.Segment;
+import javax.swing.text.Utilities;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.util.Objects;
+import java.util.StringTokenizer;
 //}}}
 
 /** The status bar used to display various information to the user.
@@ -334,7 +345,7 @@ public class StatusBar extends JPanel
 			JEditTextArea textArea = view.getTextArea();
 
 			int caretPosition = textArea.getCaretPosition();
-			int currLine = textArea.getCaretLine();
+			int currLine = textArea.getCaretLine(); // this is the current line
 
 			// there must be a better way of fixing this...
 			// the problem is that this method can sometimes
@@ -386,6 +397,31 @@ public class StatusBar extends JPanel
 				buf.append('/');
 				buf.append(bufferLength);
 				buf.append(')');
+				buf.append(' ');
+
+
+				String[] words=null;
+				while(textArea.getText() != null){
+					words=textArea.getText().split(" \\s ?\n");   //Split the word using space or newline
+				}
+				int WordCount = words.length;
+
+				int indexofWordAtCaret = 0;
+				String currentWord = getClickedWord(String.valueOf(textArea), caretPosition);
+				for (int i = 0; i <= words.length - 1; i++) {
+
+					if (currentWord.contains(words[i])) {
+						indexofWordAtCaret = i;
+
+					}
+				}
+
+				buf.append('(');
+				buf.append(indexofWordAtCaret);
+				buf.append('/');
+				buf.append(WordCount);    //Total number of words inPrint the word count
+				buf.append(')');
+
 			}
 			else if (jEdit.getBooleanProperty("view.status.show-caret-offset", true))
 			{
@@ -405,7 +441,39 @@ public class StatusBar extends JPanel
 		}
 	} //}}}
 
-	//{{{ updateBufferStatus() method
+
+	// Changes made from here on out till line 475
+	public String getClickedWord(String textArea, int caretPosition) { // returns the word at the caret position
+		try {
+			if (textArea.length() == 0) {
+				return "";
+			}
+			//replace non breaking character with space
+			textArea = textArea.replace(String.valueOf((char) 160), " ");
+			int selectionStart = textArea.lastIndexOf(" ", caretPosition - 1);
+			if (selectionStart == -1) {
+				selectionStart = 0;
+			} else {
+				//ignore space character
+				selectionStart += 1;
+			}
+			textArea = textArea.substring(selectionStart);
+			int i = 0;
+			String temp;
+			int length = textArea.length();
+			while (i != length && !(temp = textArea.substring(i, i + 1)).equals(" ") && !temp.equals("\n")) {
+				i++;
+			}
+			textArea = textArea.substring(0, i);
+			int selectionEnd = textArea.length() + selectionStart;
+			return textArea;
+		} catch (StringIndexOutOfBoundsException e) {
+			return "";
+		}
+
+	}
+	// end getClickedWord
+
 	public void updateBufferStatus()
 	{
 		wrapWidget.update();
@@ -454,7 +522,7 @@ public class StatusBar extends JPanel
 	private boolean showCaretStatus;
 	//}}}
 
-	static final String caretTestStr = "9999,999-999 (99999999/99999999)";
+	static final String caretTestStr = "9999,999-999 (99999999/99999999)(99999999/99999999)";
 
 	//{{{ getWidget() method
 	private Widget getWidget(String name)
